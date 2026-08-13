@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚌 버스 좌석 배치기 (45인승 & 선생님 자리)</title>
+    <style>
+        :root {
+            --bus-theme: #2563eb;
+            --bus-theme-dark: #1d4ed8;
+            --bus-bg: #eff6ff;
+            --seat-bg: #ffffff;
+            --seat-border: #cbd5e1;
+            --seat-occupied: #dbeafe;
+            --seat-fixed: #fef08a;
+            --seat-fixed-border: #eab308;
+            --seat-teacher: #dcfce7;
+            --seat-teacher-border: #22c55e;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --aisle-bg: #e2e8f0;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+        }
+
+        body {
+            background-color: #f1f5f9;
+            color: var(--text-main);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .app-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        header {
+            text-align: center;
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            border: 1px solid #e2e8f0;
+        }
+
+        header h1 {
+            font-size: 2.2rem;
+            color: var(--bus-theme);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        header p {
+            color: var(--text-muted);
+            margin-top: 6px;
+            font-size: 1.05rem;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 24px;
+            align-items: start;
+        }
+
+        @media (max-width: 960px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .sidebar {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .form-group label {
+            font-weight: 700;
+            font-size: 1.05rem;
+            color: var(--text-main);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sub-desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.4;
+        }
+
+        .student-input-box {
+            display: flex;
+            gap: 6px;
+        }
+
+        .student-input-box input {
+            flex: 1;
+            padding: 10px 12px;
+            border-radius: 10px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.95rem;
+            outline: none;
+        }
+
+        .student-input-box input:focus {
+            border-color: var(--bus-theme);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        }
+
+        .btn-add {
+            background: var(--bus-theme);
+            color: white;
+            border: none;
+            padding: 0 16px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: background 0.2s;
+        }
+
+        .btn-add:hover {
+            background: var(--bus-theme-dark);
+        }
+
+        .bulk-toggle-btn {
+            background: none;
+            border: none;
+            color: var(--bus-theme);
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            text-decoration: underline;
+            padding: 0;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px;
+            padding: 10px;
+            border-radius: 10px;
+            border: 1.5px solid #cbd5e1;
+            font-size: 0.95rem;
+            resize: vertical;
+            outline: none;
+        }
+
+        .dashboard-box {
+            background: #f8fafc;
+            border: 1.5px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-content: flex-start;
+        }
+
+        .student-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: white;
+            border: 1px solid #cbd5e1;
+            border-radius: 20px;
+            padding: 4px 10px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--text-main);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+            animation: fadeIn 0.2s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.9); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        .student-chip .chip-delete {
+            border: none;
+            background: #fee2e2;
+            color: #ef4444;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .student-chip .chip-delete:hover {
+            background: #ef4444;
+            color: white;
+        }
+
+        .fixed-seat-box {
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px;
+            background: #f8fafc;
+            max-height: 180px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .fixed-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: white;
+            padding: 8px 12px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            font-size: 0.95rem;
+        }
+
+        .fixed-item select {
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            font-size: 0.85rem;
+            background: white;
+            cursor: pointer;
+        }
+
+        .btn {
+            background-color: var(--bus-theme);
+            color: white;
+            border: none;
+            padding: 16px;
+            border-radius: 12px;
+            font-size: 1.25rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .btn:hover {
+            background-color: var(--bus-theme-dark);
+            transform: translateY(-1px);
+        }
+
+        .btn-secondary {
+            background-color: #475569;
+            box-shadow: none;
+            padding: 10px 16px;
+            font-size: 0.95rem;
+        }
+
+        .btn-secondary:hover {
+            background-color: #334155;
+        }
+
+        .bus-area {
+            background: white;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #e2e8f0;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .bus-header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .bus-info-badge {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--bus-theme);
+            background: var(--bus-bg);
+            padding: 8px 16px;
+            border-radius: 20px;
+        }
+
+        .bus-frame {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 40px 40px 24px 24px;
+            position: relative;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+            border: 4px solid #0f172a;
+        }
+
+        .bus-windshield {
+            background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+            height: 45px;
+            border-radius: 24px 24px 8px 8px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: bold;
+            letter-spacing: 2px;
+            font-size: 1.1rem;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+            border: 2px solid #0284c7;
+        }
+
+        .bus-front-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 24px;
+            padding: 0 10px;
+        }
+
+        .driver-seat {
+            background: #334155;
+            color: #f8fafc;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid #475569;
+        }
+
+        .bus-door {
+            background: #ef4444;
+            color: white;
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 2px solid #dc2626;
+        }
+
+        .bus-interior {
+            background: #cbd5e1;
+            padding: 16px;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .seat-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 40px 1fr 1fr;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .aisle-label {
+            text-align: center;
+            font-size: 0.75rem;
+            color: #64748b;
+            font-weight: bold;
+            user-select: none;
+        }
+
+        .seat {
+            background: var(--seat-bg);
+            border: 2px solid var(--seat-border);
+            border-radius: 12px;
+            height: 70px;
+            padding: 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            position: relative;
+            transition: all 0.2s;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .seat.occupied {
+            background: var(--seat-occupied);
+            border-color: #93c5fd;
+        }
+
+        .seat.fixed {
+            background: var(--seat-fixed);
+            border-color: var(--seat-fixed-border);
+        }
+
+        .seat.teacher {
+            background: var(--seat-teacher);
+            border-color: var(--seat-teacher-border);
+        }
+
+        .seat-number {
+            font-size: 0.75rem;
+            font-weight: 800;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            width: fit-content;
+        }
+
+        .seat.fixed .seat-number {
+            background: #fef08a;
+            color: #854d0e;
+        }
+
+        .seat.teacher .seat-number {
+            background: #bbf7d0;
+            color: #15803d;
+        }
+
+        .seat[draggable="true"] {
+            cursor: grab;
+        }
+
+        .seat[draggable="true"]:active {
+            cursor: grabbing;
+        }
+
+        .seat.dragging {
+            opacity: 0.4;
+            border-style: dashed;
+            transform: scale(0.95);
+        }
+
+        .seat.drag-over {
+            border-color: #2563eb !important;
+            background-color: #dbeafe !important;
+            transform: scale(1.05);
+            z-index: 10;
+            box-shadow: 0 0 12px rgba(37, 99, 235, 0.4);
+        }
+
+        .seat-student {
+            font-size: 1.15rem;
+            font-weight: bold;
+            text-align: center;
+            color: var(--text-main);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .badge-fixed {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 0.65rem;
+            background: #ca8a04;
+            color: white;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        .badge-teacher {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            font-size: 0.65rem;
+            background: #16a34a;
+            color: white;
+            padding: 1px 4px;
+            border-radius: 3px;
+            font-weight: bold;
+        }
+
+        .seat-row.back-row {
+            grid-template-columns: repeat(5, 1fr);
+            gap: 6px;
+            margin-top: 4px;
+            padding-top: 8px;
+            border-top: 2px dashed #94a3b8;
+        }
+
+        .empty-text {
+            color: #94a3b8;
+            font-size: 0.9rem;
+            text-align: center;
+            font-weight: normal;
+        }
+
+        .legend {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            margin-top: 8px;
+            font-size: 0.9rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .legend-box {
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
+            border: 1px solid #cbd5e1;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: #0f172a;
+            color: white;
+            padding: 12px 24px;
+            border-radius: 30px;
+            font-weight: bold;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            opacity: 0;
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+            z-index: 1000;
+        }
+
+        .toast.show {
+            transform: translateX(-50%) translateY(0);
+            opacity: 1;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1>🚌 현장체험학습 버스 좌석 배치기</h1>
+            <p>학생을 대시보드에서 한눈에 관리하고 클릭 한 번으로 좌석을 배치하세요.</p>
+        </header>
+
+        <div class="main-layout">
+            <div class="sidebar">
+                <div class="form-group">
+                    <label>
+                        <span>학생 대시보드</span>
+                        <span id="studentCount" style="font-size:0.9rem; color:var(--bus-theme);">0명</span>
+                    </label>
+                    <span class="sub-desc">이름을 입력 후 엔터를 누르거나 [추가]를 클릭하세요.</span>
+                    
+                    <div class="student-input-box">
+                        <input type="text" id="addStudentInput" placeholder="학생 이름 입력 (예: 홍길동)" />
+                        <button type="button" class="btn-add" id="addStudentBtn">추가</button>
+                    </div>
+
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 2px;">
+                        <span class="sub-desc">등록된 학생 목록 (❌ 클릭 시 삭제)</span>
+                        <button type="button" class="bulk-toggle-btn" id="bulkToggleBtn">📋 일괄 편집/붙여넣기</button>
+                    </div>
+
+                    <div id="bulkContainer" style="display: none; flex-direction: column; gap: 6px;">
+                        <textarea id="bulkInput" placeholder="김철수&#10;이영희&#10;박민수..."></textarea>
+                        <button type="button" class="btn-add" id="bulkApplyBtn" style="padding: 8px; width: 100%;">일괄 적용하기</button>
+                    </div>
+
+                    <div id="studentDashboard" class="dashboard-box"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>👩‍🏫 선생님 자리 지정</label>
+                    <span class="sub-desc">학생 무작위 배치에서 제외할 선생님 좌석입니다.</span>
+                    <div id="teacherSeatOptions" style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>📌 특정 좌석 고정 설정</label>
+                    <span class="sub-desc">멀미 등으로 앞자리가 필요한 학생의 좌석을 지정합니다.</span>
+                    <div id="fixedSeatsContainer" class="fixed-seat-box"></div>
+                </div>
+
+                <button class="btn" id="generateBtn">
+                    🎲 버스 자리 배치하기
+                </button>
+            </div>
+
+            <div class="bus-area">
+                <div class="bus-header-actions">
+                    <div class="bus-info-badge" id="busInfoBadge">45인승 버스 (학생 0명)</div>
+                    <button class="btn btn-secondary" id="copyBtn">📋 좌석 결과 복사</button>
+                </div>
+
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-box" style="background:var(--seat-bg);"></div> 일반 좌석
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box" style="background:var(--seat-teacher); border-color:var(--seat-teacher-border);"></div> 선생님
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box" style="background:var(--seat-fixed); border-color:var(--seat-fixed-border);"></div> 위치 고정
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-box" style="background:var(--seat-occupied);"></div> 학생 배정
+                    </div>
+                </div>
+
+                <div class="bus-frame">
+                    <div class="bus-windshield">FRONT (전방)</div>
+                    
+                    <div class="bus-front-row">
+                        <div class="driver-seat">👨‍✈️ 운전석</div>
+                        <div class="bus-door">🚪 출입문</div>
+                    </div>
+
+                    <div class="bus-interior" id="busInterior"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="toast">메시지</div>
+
+    <script>
+        const addStudentInput = document.getElementById('addStudentInput');
+        const addStudentBtn = document.getElementById('addStudentBtn');
+        const studentDashboard = document.getElementById('studentDashboard');
+        const bulkToggleBtn = document.getElementById('bulkToggleBtn');
+        const bulkContainer = document.getElementById('bulkContainer');
+        const bulkInput = document.getElementById('bulkInput');
+        const bulkApplyBtn = document.getElementById('bulkApplyBtn');
+
+        const studentCountSpan = document.getElementById('studentCount');
+        const fixedSeatsContainer = document.getElementById('fixedSeatsContainer');
+        const teacherSeatOptions = document.getElementById('teacherSeatOptions');
+        const generateBtn = document.getElementById('generateBtn');
+        const busInterior = document.getElementById('busInterior');
+        const busInfoBadge = document.getElementById('busInfoBadge');
+        const copyBtn = document.getElementById('copyBtn');
+        const toast = document.getElementById('toast');
+
+        const STORAGE_KEY_STUDENTS = 'bus_tool_students_v2';
+        const STORAGE_KEY_FIXED = 'bus_tool_fixed_seats_v2';
+        const STORAGE_KEY_TEACHER = 'bus_tool_teacher_seats_v2';
+
+        const defaultStudents = ["강민준", "김서연", "박도윤", "이하은", "정지호", "최수아", "한윤서", "오현우", "임지민", "조성민", "윤서준", "장채원", "김태양", "박지민", "이준우", "최민서", "황도현", "송서현", "류하준", "신유나", "백건우", "고은서", "전우진", "유아린"];
+
+        const TOTAL_BUS_SEATS = 45;
+        let students = [];
+        let fixedSeatMap = {};
+        let teacherSeats = [1, 2];
+        let currentAssignments = [];
+
+        window.onload = function() {
+            const savedList = localStorage.getItem(STORAGE_KEY_STUDENTS);
+            const savedFixed = localStorage.getItem(STORAGE_KEY_FIXED);
+            const savedTeacher = localStorage.getItem(STORAGE_KEY_TEACHER);
+
+            if (savedList !== null) {
+                try { students = JSON.parse(savedList); } catch(e) { students = [...defaultStudents]; }
+            } else {
+                students = [...defaultStudents];
+            }
+
+            if (savedFixed !== null) {
+                try { fixedSeatMap = JSON.parse(savedFixed) || {}; } catch(e) { fixedSeatMap = {}; }
+            }
+
+            if (savedTeacher !== null) {
+                try { teacherSeats = JSON.parse(savedTeacher) || [1, 2]; } catch(e) { teacherSeats = [1, 2]; }
+            }
+
+            saveData();
+            updateAll();
+            assignSeats();
+        };
+
+        function saveData() {
+            localStorage.setItem(STORAGE_KEY_STUDENTS, JSON.stringify(students));
+            localStorage.setItem(STORAGE_KEY_FIXED, JSON.stringify(fixedSeatMap));
+            localStorage.setItem(STORAGE_KEY_TEACHER, JSON.stringify(teacherSeats));
+        }
+
+        function showToast(message) {
+            toast.textContent = message;
+            toast.classList.add('show');
+            setTimeout(() => { toast.classList.remove('show'); }, 2500);
+        }
+
+        function addStudent(name) {
+            const trimmed = name.trim();
+            if (!trimmed) return;
+            if (students.includes(trimmed)) {
+                showToast(`'${trimmed}' 학생은 이미 등록되어 있습니다.`);
+                return;
+            }
+            students.push(trimmed);
+            saveData();
+            updateAll();
+            assignSeats();
+        }
+
+        function deleteStudent(name) {
+            students = students.filter(s => s !== name);
+            if (fixedSeatMap[name]) {
+                delete fixedSeatMap[name];
+            }
+            saveData();
+            updateAll();
+            assignSeats();
+            showToast(`'${name}' 학생이 삭제되었습니다.`);
+        }
+
+        addStudentBtn.addEventListener('click', () => {
+            addStudent(addStudentInput.value);
+            addStudentInput.value = '';
+            addStudentInput.focus();
+        });
+
+        addStudentInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                addStudent(addStudentInput.value);
+                addStudentInput.value = '';
+            }
+        });
+
+        bulkToggleBtn.addEventListener('click', () => {
+            if (bulkContainer.style.display === 'none') {
+                bulkContainer.style.display = 'flex';
+                bulkInput.value = students.join('\n');
+                bulkToggleBtn.textContent = '❌ 일괄 창 닫기';
+            } else {
+                bulkContainer.style.display = 'none';
+                bulkToggleBtn.textContent = '📋 일괄 편집/붙여넣기';
+            }
+        });
+
+        bulkApplyBtn.addEventListener('click', () => {
+            const lines = bulkInput.value.split('\n')
+                .map(s => s.trim())
+                .filter(s => s.length > 0);
+            
+            students = [...new Set(lines)];
+            
+            for (let name in fixedSeatMap) {
+                if (!students.includes(name)) delete fixedSeatMap[name];
+            }
+
+            saveData();
+            updateAll();
+            assignSeats();
+            bulkContainer.style.display = 'none';
+            bulkToggleBtn.textContent = '📋 일괄 편집/붙여넣기';
+            showToast('학생 명단이 변경되었습니다.');
+        });
+
+        function updateAll() {
+            studentCountSpan.textContent = `${students.length}명`;
+            busInfoBadge.textContent = `45인승 버스 (학생 ${students.length}명 / 교사 ${teacherSeats.length}석)`;
+
+            renderDashboard();
+            renderTeacherSeatSelector();
+            renderFixedSeatOptions();
+        }
+
+        function renderDashboard() {
+            studentDashboard.innerHTML = '';
+            if (students.length === 0) {
+                studentDashboard.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; width:100%; text-align:center; padding:10px;">등록된 학생이 없습니다. 위 입력창에 이름을 입력하세요.</div>';
+                return;
+            }
+
+            students.forEach(name => {
+                const chip = document.createElement('div');
+                chip.className = 'student-chip';
+                
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = name;
+                chip.appendChild(nameSpan);
+
+                if (fixedSeatMap[name]) {
+                    const seatBadge = document.createElement('span');
+                    seatBadge.style.fontSize = '0.75rem';
+                    seatBadge.style.color = '#854d0e';
+                    seatBadge.style.background = '#fef08a';
+                    seatBadge.style.padding = '1px 5px';
+                    seatBadge.style.borderRadius = '4px';
+                    seatBadge.textContent = `${fixedSeatMap[name]}번`;
+                    chip.appendChild(seatBadge);
+                }
+
+                const delBtn = document.createElement('button');
+                delBtn.className = 'chip-delete';
+                delBtn.textContent = '✕';
+                delBtn.title = '학생 삭제';
+                delBtn.onclick = () => deleteStudent(name);
+
+                chip.appendChild(delBtn);
+                studentDashboard.appendChild(chip);
+            });
+        }
+
+        function renderTeacherSeatSelector() {
+            teacherSeatOptions.innerHTML = '';
+            const candidateSeats = [1, 2, 3, 4, 41, 42, 43, 44, 45];
+            
+            candidateSeats.forEach(seatNum => {
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                const isSelected = teacherSeats.includes(seatNum);
+                
+                btn.style.padding = '5px 10px';
+                btn.style.borderRadius = '8px';
+                btn.style.border = '1.5px solid ' + (isSelected ? '#22c55e' : '#cbd5e1');
+                btn.style.background = isSelected ? '#dcfce7' : 'white';
+                btn.style.color = isSelected ? '#15803d' : '#475569';
+                btn.style.fontWeight = 'bold';
+                btn.style.cursor = 'pointer';
+                btn.style.fontSize = '0.85rem';
+                btn.textContent = `${seatNum}번 ${isSelected ? '✓' : ''}`;
+
+                btn.addEventListener('click', () => {
+                    if (teacherSeats.includes(seatNum)) {
+                        teacherSeats = teacherSeats.filter(s => s !== seatNum);
+                    } else {
+                        teacherSeats.push(seatNum);
+                        for (let s in fixedSeatMap) {
+                            if (fixedSeatMap[s] === seatNum) delete fixedSeatMap[s];
+                        }
+                    }
+                    saveData();
+                    updateAll();
+                    assignSeats();
+                });
+
+                teacherSeatOptions.appendChild(btn);
+            });
+        }
+
+        function renderFixedSeatOptions() {
+            fixedSeatsContainer.innerHTML = '';
+            if (students.length === 0) {
+                fixedSeatsContainer.innerHTML = '<div style="color:var(--text-muted); font-size:0.85rem; text-align:center;">학생을 먼저 입력해주세요.</div>';
+                return;
+            }
+
+            students.forEach(student => {
+                const item = document.createElement('div');
+                item.className = 'fixed-item';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.style.fontWeight = 'bold';
+                nameSpan.textContent = student;
+
+                const select = document.createElement('select');
+                
+                const freeOpt = document.createElement('option');
+                freeOpt.value = '0';
+                freeOpt.textContent = '자유 랜덤 배치';
+                select.appendChild(freeOpt);
+
+                for (let i = 1; i <= TOTAL_BUS_SEATS; i++) {
+                    if (teacherSeats.includes(i)) continue;
+
+                    const opt = document.createElement('option');
+                    opt.value = i;
+                    const seatPos = (i >= 41) ? '맨뒷줄' : ((i % 4 === 1 || i % 4 === 0) ? '창가' : '복도');
+                    opt.textContent = `${i}번 (${seatPos})`;
+                    select.appendChild(opt);
+                }
+
+                if (fixedSeatMap[student] && !teacherSeats.includes(fixedSeatMap[student])) {
+                    select.value = fixedSeatMap[student];
+                }
+
+                select.addEventListener('change', (e) => {
+                    const seatVal = parseInt(e.target.value, 10);
+                    if (seatVal === 0) {
+                        delete fixedSeatMap[student];
+                    } else {
+                        for (let otherStudent in fixedSeatMap) {
+                            if (fixedSeatMap[otherStudent] === seatVal && otherStudent !== student) {
+                                delete fixedSeatMap[otherStudent];
+                            }
+                        }
+                        fixedSeatMap[student] = seatVal;
+                    }
+                    saveData();
+                    updateAll();
+                });
+
+                item.appendChild(nameSpan);
+                item.appendChild(select);
+                fixedSeatsContainer.appendChild(item);
+            });
+        }
+
+        function shuffle(array) {
+            const arr = [...array];
+            for (let i = arr.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [arr[i], arr[j]] = [arr[j], arr[i]];
+            }
+            return arr;
+        }
+
+        generateBtn.addEventListener('click', function() {
+            assignSeats();
+            showToast('🎲 버스 자리가 새롭게 배치되었습니다!');
+        });
+
+        function assignSeats() {
+            const seats = new Array(TOTAL_BUS_SEATS + 1).fill(null);
+
+            teacherSeats.forEach(seatNum => {
+                if (seatNum <= TOTAL_BUS_SEATS) {
+                    seats[seatNum] = { name: '선생님', isTeacher: true, isFixed: false };
+                }
+            });
+
+            const freeStudents = [];
+            students.forEach(student => {
+                const fixedSeatNum = fixedSeatMap[student];
+                if (fixedSeatNum && fixedSeatNum <= TOTAL_BUS_SEATS && !teacherSeats.includes(fixedSeatNum)) {
+                    seats[fixedSeatNum] = { name: student, isTeacher: false, isFixed: true };
+                } else {
+                    freeStudents.push(student);
+                }
+            });
+
+            const shuffledFree = shuffle(freeStudents);
+            let freeIdx = 0;
+
+            for (let i = 1; i <= TOTAL_BUS_SEATS; i++) {
+                if (!seats[i]) {
+                    if (freeIdx < shuffledFree.length) {
+                        seats[i] = { name: shuffledFree[freeIdx], isTeacher: false, isFixed: false };
+                        freeIdx++;
+                    }
+                }
+            }
+
+            currentAssignments = seats;
+            renderBusSeats(seats);
+        }
+
+        function renderBusSeats(seats) {
+            busInterior.innerHTML = '';
+
+            for (let r = 0; r < 10; r++) {
+                const rowDiv = document.createElement('div');
+                rowDiv.className = 'seat-row';
+
+                const seatIndices = [
+                    r * 4 + 1,
+                    r * 4 + 2,
+                    null,
+                    r * 4 + 3,
+                    r * 4 + 4
+                ];
+
+                seatIndices.forEach((seatNum) => {
+                    if (seatNum === null) {
+                        const aisle = document.createElement('div');
+                        aisle.className = 'aisle-label';
+                        aisle.textContent = `${r + 1}줄`;
+                        rowDiv.appendChild(aisle);
+                        return;
+                    }
+                    rowDiv.appendChild(createSeatElement(seatNum, seats[seatNum]));
+                });
+
+                busInterior.appendChild(rowDiv);
+            }
+
+            const backRowDiv = document.createElement('div');
+            backRowDiv.className = 'seat-row back-row';
+
+            for (let seatNum = 41; seatNum <= 45; seatNum++) {
+                backRowDiv.appendChild(createSeatElement(seatNum, seats[seatNum]));
+            }
+
+            busInterior.appendChild(backRowDiv);
+        }
+
+        function createSeatElement(seatNum, seatData) {
+            const seatDiv = document.createElement('div');
+            seatDiv.className = 'seat';
+
+            if (seatData) {
+                if (seatData.isTeacher) {
+                    seatDiv.classList.add('teacher');
+                } else {
+                    seatDiv.classList.add('occupied');
+                    if (seatData.isFixed) seatDiv.classList.add('fixed');
+                }
+            }
+
+            const numSpan = document.createElement('span');
+            numSpan.className = 'seat-number';
+            numSpan.textContent = `${seatNum}번`;
+
+            const nameSpan = document.createElement('div');
+            nameSpan.className = 'seat-student';
+            if (seatData) {
+                nameSpan.textContent = seatData.name;
+            } else {
+                nameSpan.className = 'seat-student empty-text';
+                nameSpan.textContent = '빈 자 리';
+            }
+
+            seatDiv.appendChild(numSpan);
+            seatDiv.appendChild(nameSpan);
+
+            if (seatData && seatData.isTeacher) {
+                const badge = document.createElement('span');
+                badge.className = 'badge-teacher';
+                badge.textContent = '교사';
+                seatDiv.appendChild(badge);
+            } else if (seatData && seatData.isFixed) {
+                const badge = document.createElement('span');
+                badge.className = 'badge-fixed';
+                badge.textContent = '고정';
+                seatDiv.appendChild(badge);
+            }
+
+            if (seatData && !seatData.isTeacher) {
+                seatDiv.setAttribute('draggable', 'true');
+            }
+
+            seatDiv.addEventListener('dragstart', (e) => {
+                if (!seatData || seatData.isTeacher) {
+                    e.preventDefault();
+                    return;
+                }
+                e.dataTransfer.setData('text/plain', seatNum);
+                seatDiv.classList.add('dragging');
+            });
+
+            seatDiv.addEventListener('dragend', () => {
+                seatDiv.classList.remove('dragging');
+            });
+
+            seatDiv.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                if (currentAssignments[seatNum] && currentAssignments[seatNum].isTeacher) return;
+                seatDiv.classList.add('drag-over');
+            });
+
+            seatDiv.addEventListener('dragleave', () => {
+                seatDiv.classList.remove('drag-over');
+            });
+
+            seatDiv.addEventListener('drop', (e) => {
+                e.preventDefault();
+                seatDiv.classList.remove('drag-over');
+
+                const fromSeatNum = parseInt(e.dataTransfer.getData('text/plain'), 10);
+                if (isNaN(fromSeatNum) || fromSeatNum === seatNum) return;
+
+                if (teacherSeats.includes(seatNum) || teacherSeats.includes(fromSeatNum)) {
+                    showToast('선생님 좌석으로는 드래그할 수 없습니다.');
+                    return;
+                }
+
+                const temp = currentAssignments[fromSeatNum];
+                currentAssignments[fromSeatNum] = currentAssignments[seatNum];
+                currentAssignments[seatNum] = temp;
+
+                const studentMovedFrom = currentAssignments[fromSeatNum]?.name;
+                const studentMovedTo = currentAssignments[seatNum]?.name;
+
+                if (studentMovedFrom && fixedSeatMap[studentMovedFrom]) {
+                    fixedSeatMap[studentMovedFrom] = fromSeatNum;
+                }
+                if (studentMovedTo && fixedSeatMap[studentMovedTo]) {
+                    fixedSeatMap[studentMovedTo] = seatNum;
+                }
+
+                saveData();
+                renderDashboard();
+                renderFixedSeatOptions();
+                renderBusSeats(currentAssignments);
+                showToast(`🖐️ ${fromSeatNum}번과 ${seatNum}번 좌석의 위치가 변경되었습니다.`);
+            });
+
+            return seatDiv;
+        }
+
+        copyBtn.addEventListener('click', function() {
+            if (!currentAssignments || currentAssignments.length === 0) {
+                showToast('배치된 좌석이 없습니다.');
+                return;
+            }
+            let text = "🚌 [버스 좌석 배치 결과 (45인승)]\n\n";
+            for (let i = 1; i <= TOTAL_BUS_SEATS; i++) {
+                const item = currentAssignments[i];
+                const name = item ? item.name : "(빈자리)";
+                const status = item && item.isTeacher ? " [교사]" : (item && item.isFixed ? " [고정]" : "");
+                text += `${i}번: ${name}${status}\t`;
+                if (i % 2 === 0 && i % 4 !== 0 && i < 41) {
+                    text += "  |  ";
+                } else if (i % 4 === 0 || i === 40 || i === 45) {
+                    text += "\n";
+                }
+            }
+
+            const dummy = document.createElement('textarea');
+            document.body.appendChild(dummy);
+            dummy.value = text;
+            dummy.select();
+            try {
+                document.execCommand('copy');
+                showToast('📋 좌석 배치 결과가 클립보드에 복사되었습니다!');
+            } catch (err) {
+                showToast('복사에 실패했습니다.');
+            }
+            document.body.removeChild(dummy);
+        });
+    </script>
+</body>
+</html>
